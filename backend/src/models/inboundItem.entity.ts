@@ -5,6 +5,8 @@ export class InboundItemEntity {
   @Column() inboundOrderId!: number;
   @Column() productId!: number;
   @Column() batchNo!: string;
+  @Column({ nullable: true }) productionDate?: string;
+  @Column({ nullable: true }) expiryDate?: string;
   @Column('float') expectedQty!: number;
   @Column('float') actualQty!: number;
   @Column() qcResult!: string;
