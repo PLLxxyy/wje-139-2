@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ProductService } from './product.service';
 
 @Injectable()
 export class InboundService {
@@ -42,7 +43,7 @@ export class InboundService {
       items: [
         {
           id: 2,
-          productId: 1,
+        productId: 1,
           batchNo: 'B202605',
           productionDate: '2026-01-05',
           expiryDate: '2026-07-04',
@@ -66,9 +67,7 @@ export class InboundService {
     }
   ];
 
-  private products: any[] = [
-    { id: 1, ownerId: 1, name: '冷链食品 A', sku: 'SKU-CC-01', barcode: '6900001', category: '食品', spec: '10kg/箱', unit: '箱', shelfLifeDays: 180, storageRequirement: 'ColdChain', volume: 0.08, weight: 10 }
-  ];
+  constructor(private readonly productService: ProductService) {}
 
   calculateExpiryDate(productionDate: string, shelfLifeDays: number): string {
     if (!productionDate || !shelfLifeDays) return '';
@@ -84,7 +83,7 @@ export class InboundService {
 
   create(payload: any) {
     const items = (payload.items || []).map((item: any, idx: number) => {
-      const product = this.products.find(p => p.id === item.productId);
+      const product = this.productService.findById(item.productId);
       const shelfLifeDays = product?.shelfLifeDays;
       const expiryDate = item.productionDate && shelfLifeDays
         ? this.calculateExpiryDate(item.productionDate, shelfLifeDays)
@@ -104,12 +103,15 @@ export class InboundService {
 
     for (const order of this.rows) {
       for (const item of order.items || []) {
-        if (!item.expiryDate) continue;
-        const expiry = new Date(item.expiryDate);
-        if (expiry >= now && expiry <= threshold && item.actualQty > 0) {
-          const product = this.products.find(p => p.id === item.productId);
+        const product = this.productService.findById(item.productId);
+        const shelfLifeDays = product?.shelfLifeDays;
+        if (!item.productionDate || !shelfLifeDays || item.actualQty <= 0) continue;
+        const expiryStr = this.calculateExpiryDate(item.productionDate, shelfLifeDays);
+        const expiry = new Date(expiryStr);
+        if (expiry >= now && expiry <= threshold) {
           results.push({
             ...item,
+            expiryDate: expiryStr,
             orderNo: order.orderNo,
             productName: product?.name || '',
             productSku: product?.sku || '',
