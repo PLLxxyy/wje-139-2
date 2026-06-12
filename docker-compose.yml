@@ -1,0 +1,50 @@
+name: supply-warehouse
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-supply-warehouse}-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-supply_warehouse}
+      POSTGRES_USER: ${DB_USER:-supply_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-supply_password}
+    volumes:
+      - supply_warehouse_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-supply_user} -d ${DB_NAME:-supply_warehouse}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME:-supply-warehouse}-backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-supply_warehouse}
+      DB_USER: ${DB_USER:-supply_user}
+      DB_PASSWORD: ${DB_PASSWORD:-supply_password}
+      JWT_SECRET: ${JWT_SECRET:-supply-warehouse-secret}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  frontend:
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-supply-warehouse}-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+
+volumes:
+  supply_warehouse_pg:
